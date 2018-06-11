@@ -3,12 +3,14 @@ import argparse
 import os
 import re
 import sys
+from multiprocessing import Process, freeze_support
 
 # Global variables
 keyword_pattern = re.compile("")
 root_path = ""
 directory_matches = {}
 verbose = False
+generate_graph = False
 
 
 def check_file_match(file_path):
@@ -18,7 +20,7 @@ def check_file_match(file_path):
 
             while(not line == ""):
                 if keyword_pattern.search(line) is not None:
-                    if verbose: print("Found match in file: " + file_path)                   
+                    if verbose: print("Found match in file: " + file_path)
                     dir_path = os.path.dirname(file_path)
 
                     if (directory_matches.has_key(dir_path)):
@@ -66,15 +68,20 @@ def validate_arguments(root_path, keyword):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbose", help="Set verbose output", action="store_true")
-    parser.add_argument("rootpath", help="Directory where scanning will begin")
-    parser.add_argument("keyword", help="Regular expression that defines keyword to search in files")
+    parser = argparse.ArgumentParser(description="Count number of files in a given directory that match a regular expression")
+    parser.add_argument("-v", "--verbose", help="set verbose output", action="store_true")
+    parser.add_argument("-g", "--graph", help="generate graph of directory counts", action="store_true")
+    parser.add_argument("rootpath", help="directory where scanning will begin")
+    parser.add_argument("keyword", help="regular expression that defines keyword to search in files")
     args = parser.parse_args()
 
     if (args.verbose):
         global verbose
         verbose = True
+    
+    if (args.graph):
+        global generate_graph
+        generate_graph = True
 
     keyword = args.keyword
 
@@ -89,7 +96,7 @@ def main():
         - validate parameters
         - set any requested options
         - start directory traversal """
-    # Validate parameters
+    # Validate parameters and set options
     parse_arguments()
 
     # Start directory traversal
@@ -99,8 +106,13 @@ def main():
     if (len(directory_matches) == 0):
         print("No matches found.")
     else:
-        for key in enumerate(directory_matches.iterkeys()):
+        for key in enumerate(directory_matches.keys()):
             print(key[1] + ": " + str(directory_matches[key[1]]))
 
 # Starting point of the script
-main()
+if __name__ == "__main__":
+    #freeze_support()
+    #p = Process(target=main)
+    #p.start()
+
+    main()
