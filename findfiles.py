@@ -20,7 +20,6 @@ except ImportError:
 # Global variables
 keyword_pattern = re.compile("")
 root_path = ""
-directory_matches = {}
 verbose = False
 generate_graph = False
 graph_size = [7, 5]
@@ -70,6 +69,7 @@ def find_files(path):
 def gather_results():
     done_count = 0
     cpu_count = multiprocessing.cpu_count()
+    results = {}
 
     while (True):
         try:
@@ -85,10 +85,12 @@ def gather_results():
                 break
         else:
             # We got a matching directory
-            if (directory_matches.has_key(result)):
-                directory_matches[result] += 1
+            if (results.has_key(result)):
+                results[result] += 1
             else:
-                directory_matches[result] = 1
+                results[result] = 1
+
+    return results
 
 
 # Entry point for a worker Process
@@ -100,7 +102,7 @@ def worker(input, output):
             dir_path = os.path.dirname(path)
             output.put(dir_path)
     
-    #output.put("---stopped---")
+    output.put("---stopped---")
 
 
 # Initialize worker Processes that will look for matches in files
@@ -168,7 +170,7 @@ def parse_arguments():
 
 
 # Generate graph with directory count data
-def graph_data():
+def graph_data(matches):
     if (not generate_graph):
         return
 
@@ -180,11 +182,11 @@ def graph_data():
         print("")
         quit()
 
-    n_groups = len(directory_matches)
+    n_groups = len(matches)
 
     matches_data = []
     matches_labels = []
-    for item in directory_matches.items():
+    for item in matches.items():
         matches_labels.append(item[0])
         matches_data.append(item[1])
 
@@ -233,15 +235,15 @@ def main():
     initialize_pool()
     find_files(root_path)
     terminate_pool()
-    gather_results()
-    graph_data()
+    matches = gather_results()
+    graph_data(matches)
 
     print("Matches:")
-    if (len(directory_matches) == 0):
+    if (len(matches) == 0):
         print("No matches found.")
     else:
-        for key in enumerate(directory_matches.keys()):
-            print(key[1] + ": " + str(directory_matches[key[1]]))
+        for key in enumerate(matches.keys()):
+            print(key[1] + ": " + str(matches[key[1]]))
     
 # Starting point of the script
 if __name__ == "__main__":
