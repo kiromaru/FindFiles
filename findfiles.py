@@ -221,6 +221,7 @@ def graph_data(matches):
         print("Try specifying a larger figure size.")
 
 
+# Print resulting matches
 def print_result(matches):
     print("Matches:")
     if (len(matches) == 0):
