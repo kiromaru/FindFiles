@@ -2,8 +2,20 @@
 import argparse
 import multiprocessing
 import os
+import Queue
 import re
 import sys
+
+graph_support = True
+
+try:
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+    from collections import namedtuple
+except ImportError:
+    graph_support = False
+    
 
 # Global variables
 keyword_pattern = re.compile("")
@@ -11,6 +23,7 @@ root_path = ""
 directory_matches = {}
 verbose = False
 generate_graph = False
+graph_size = [7, 5]
 task_queue = multiprocessing.Queue()
 done_queue = multiprocessing.Queue()
 
@@ -59,7 +72,13 @@ def gather_results():
     cpu_count = multiprocessing.cpu_count()
 
     while (True):
-        result = done_queue.get(timeout=5)
+        try:
+            result = done_queue.get(timeout=10)
+        except Queue.Empty:
+            print("Error: Did not get expected results from worker Process.")
+            print("       Results might be incomplete.")
+            break
+
         if result == "---stopped---":
             done_count += 1
             if done_count == cpu_count:
@@ -81,7 +100,7 @@ def worker(input, output):
             dir_path = os.path.dirname(path)
             output.put(dir_path)
     
-    output.put("---stopped---")
+    #output.put("---stopped---")
 
 
 # Initialize worker Processes that will look for matches in files
@@ -124,6 +143,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Count number of files in a given directory that match a regular expression")
     parser.add_argument("-v", "--verbose", help="set verbose output", action="store_true")
     parser.add_argument("-g", "--graph", help="generate graph of directory counts", action="store_true")
+    parser.add_argument("-gx", "--graphx", type=int, default=7, help="size of graph in X axis")
+    parser.add_argument("-gy", "--graphy", type=int, default=5, help="size of graph in Y axis")
     parser.add_argument("rootpath", help="directory where scanning will begin")
     parser.add_argument("keyword", help="regular expression that defines keyword to search in files")
     args = parser.parse_args()
@@ -135,6 +156,8 @@ def parse_arguments():
     if (args.graph):
         global generate_graph
         generate_graph = True
+        global graph_size
+        graph_size = [args.graphx, args.graphy]
 
     keyword = args.keyword
 
@@ -144,17 +167,74 @@ def parse_arguments():
     validate_arguments(root_path, keyword)
 
 
+# Generate graph with directory count data
+def graph_data():
+    if (not generate_graph):
+        return
+
+    if (not graph_support):
+        print("This script uses the package 'matplotlib' to generate graphs.")
+        print("Please run the following command to install matplotlib:")
+        print("")
+        print("pip install -U matplotlib")
+        print("")
+        quit()
+
+    n_groups = len(directory_matches)
+
+    matches_data = []
+    matches_labels = []
+    for item in directory_matches.items():
+        matches_labels.append(item[0])
+        matches_data.append(item[1])
+
+    fig, ax = plt.subplots(figsize=(graph_size[0], graph_size[1]))
+
+    index = np.arange(n_groups)
+    bar_width = 0.7
+
+    opacity = 0.8
+    error_config = {'ecolor': '0.3'}
+
+    ax.bar(index, matches_data, bar_width,
+           alpha=opacity, color='b',
+           error_kw=error_config,
+           label="Match Count")
+
+    ax.set_xlabel('Directories')
+    ax.set_ylabel('Match Count')
+    ax.set_title('Matches by directory')
+    ax.set_xticks(index)
+    ax.set_xticklabels(matches_labels)
+    ax.legend()
+
+    # Since we have directory names as labels, rotate them
+    # so they become legible.
+    plt.xticks(rotation=90)
+
+    try:
+        fig.tight_layout()
+        plt.savefig("matchfig")
+        print("Graph has been saved to file 'matchfig.png'")
+    except ValueError as valerr:
+        print("Error generating graph: " + str(valerr))
+        print("Current figure size is: " + str(graph_size))
+        print("Try specifying a larger figure size.")
+
+
 def main():
     """ Main method of the script.
         - validate parameters
         - set any requested options
-        - start directory traversal """
+        - start directory traversal
+        - generate graph if necessary """
 
     parse_arguments()
     initialize_pool()
     find_files(root_path)
     terminate_pool()
     gather_results()
+    graph_data()
 
     print("Matches:")
     if (len(directory_matches) == 0):
@@ -162,7 +242,7 @@ def main():
     else:
         for key in enumerate(directory_matches.keys()):
             print(key[1] + ": " + str(directory_matches[key[1]]))
-
+    
 # Starting point of the script
 if __name__ == "__main__":
     multiprocessing.freeze_support()
