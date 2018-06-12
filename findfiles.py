@@ -97,7 +97,10 @@ def gather_results(done_queue):
 # Entry point for a worker Process
 # Process a path from the task queue and put directory in output queue
 # if a match is found.
-def worker(input, output):
+def worker(worker_config, input, output):
+    global config
+    config = worker_config
+
     for file_path in iter(input.get, "---STOP---"):
         if (is_file_match(file_path)):
             dir_path = os.path.dirname(file_path)
@@ -112,7 +115,7 @@ def initialize_pool(task_queue, done_queue):
     processors = multiprocessing.cpu_count()
 
     for i in range(processors):
-        multiprocessing.Process(target=worker, args=(task_queue, done_queue)).start()
+        multiprocessing.Process(target=worker, args=(config, task_queue, done_queue)).start()
 
 
 # Tell worker processes to stop looking for work
