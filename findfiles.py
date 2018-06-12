@@ -15,16 +15,16 @@ try:
     from collections import namedtuple
 except ImportError:
     graph_support = False
-    
+
 
 # Global variables
-keyword_pattern = re.compile("")
-root_path = ""
-verbose = False
-generate_graph = False
-graph_size = [7, 5]
-task_queue = multiprocessing.Queue()
-done_queue = multiprocessing.Queue()
+config = {
+    "keyword_pattern": re.compile(""),
+    "root_path": "",
+    "verbose": False,
+    "generate_graph": False,
+    "graph_size": [7, 5]
+}
 
 
 # Determine if given file is a match for keyword_pattern
@@ -34,8 +34,8 @@ def is_file_match(file_path):
             line = fi.readline()
 
             while(not line == ""):
-                if keyword_pattern.search(line) is not None:
-                    if verbose: print("Found match in file: " + file_path)
+                if config["keyword_pattern"].search(line) is not None:
+                    if config["verbose"]: print("Found match in file: " + file_path)
 
                     # Once a match has been found, no need to keep reading the file
                     return True
@@ -49,14 +49,14 @@ def is_file_match(file_path):
 
 # Recursively iterate through the directories and files in a directory,
 # looking for matches to the regular expression
-def find_files(path):
-    if verbose: print ("Looking in: " + path)
+def find_files(path, task_queue):
+    if config["verbose"]: print ("Looking in: " + path)
     try:
         for f in os.listdir(path):
             new_path = os.path.join(path, f)
 
             if os.path.isdir(new_path):
-                find_files(new_path)
+                find_files(new_path, task_queue)
             else:
                 # Send actual file to worker Process to look for a match
                 task_queue.put(new_path)
@@ -66,7 +66,7 @@ def find_files(path):
 
 # Get results from worker Processes and collect them in our resulting
 # dictionary
-def gather_results():
+def gather_results(done_queue):
     done_count = 0
     cpu_count = multiprocessing.cpu_count()
     results = {}
@@ -82,6 +82,7 @@ def gather_results():
         if result == "---stopped---":
             done_count += 1
             if done_count == cpu_count:
+                # All worker Processes have stopped
                 break
         else:
             # We got a matching directory
@@ -97,16 +98,16 @@ def gather_results():
 # Process a path from the task queue and put directory in output queue
 # if a match is found.
 def worker(input, output):
-    for path in iter(input.get, "---STOP---"):
-        if (is_file_match(path)):
-            dir_path = os.path.dirname(path)
+    for file_path in iter(input.get, "---STOP---"):
+        if (is_file_match(file_path)):
+            dir_path = os.path.dirname(file_path)
             output.put(dir_path)
     
     output.put("---stopped---")
 
 
 # Initialize worker Processes that will look for matches in files
-def initialize_pool():
+def initialize_pool(task_queue, done_queue):
     # Create a Process for every processor in the machine.
     processors = multiprocessing.cpu_count()
 
@@ -115,7 +116,7 @@ def initialize_pool():
 
 
 # Tell worker processes to stop looking for work
-def terminate_pool():
+def terminate_pool(task_queue):
     processors = multiprocessing.cpu_count()
 
     for i in range(processors):
@@ -125,8 +126,7 @@ def terminate_pool():
 # Validate arguments given to the script
 def validate_arguments(root_path, keyword):
     try:
-        global keyword_pattern
-        keyword_pattern = re.compile(keyword)
+        config["keyword_pattern"] = re.compile(keyword)
     except re.error as ree:
         print("Error: given regular expression is not valid: " + str(ree))
         quit()
@@ -152,26 +152,22 @@ def parse_arguments():
     args = parser.parse_args()
 
     if (args.verbose):
-        global verbose
-        verbose = True
+        config["verbose"] = True
     
     if (args.graph):
-        global generate_graph
-        generate_graph = True
-        global graph_size
-        graph_size = [args.graphx, args.graphy]
+        config["generate_graph"] = True
+        config["graph_size"] = [args.graphx, args.graphy]
 
     keyword = args.keyword
 
-    global root_path
-    root_path = args.rootpath
+    config["root_path"] = args.rootpath
 
-    validate_arguments(root_path, keyword)
+    validate_arguments(config["root_path"], keyword)
 
 
 # Generate graph with directory count data
 def graph_data(matches):
-    if (not generate_graph):
+    if (not config["generate_graph"]):
         return
 
     if (not graph_support):
@@ -190,6 +186,7 @@ def graph_data(matches):
         matches_labels.append(item[0])
         matches_data.append(item[1])
 
+    graph_size = config["graph_size"]
     fig, ax = plt.subplots(figsize=(graph_size[0], graph_size[1]))
 
     index = np.arange(n_groups)
@@ -224,6 +221,15 @@ def graph_data(matches):
         print("Try specifying a larger figure size.")
 
 
+def print_result(matches):
+    print("Matches:")
+    if (len(matches) == 0):
+        print("No matches found.")
+    else:
+        for key in enumerate(matches.keys()):
+            print(key[1] + ": " + str(matches[key[1]]))
+
+
 def main():
     """ Main method of the script.
         - validate parameters
@@ -231,20 +237,18 @@ def main():
         - start directory traversal
         - generate graph if necessary """
 
+    task_queue = multiprocessing.Queue()
+    done_queue = multiprocessing.Queue()
+
     parse_arguments()
-    initialize_pool()
-    find_files(root_path)
-    terminate_pool()
-    matches = gather_results()
+    initialize_pool(task_queue, done_queue)
+    find_files(config["root_path"], task_queue)
+    terminate_pool(task_queue)
+    matches = gather_results(done_queue)
+    print_result(matches)
     graph_data(matches)
 
-    print("Matches:")
-    if (len(matches) == 0):
-        print("No matches found.")
-    else:
-        for key in enumerate(matches.keys()):
-            print(key[1] + ": " + str(matches[key[1]]))
-    
+
 # Starting point of the script
 if __name__ == "__main__":
     multiprocessing.freeze_support()
