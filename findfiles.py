@@ -46,7 +46,7 @@ def is_file_match(file_path, done_queue):
                 if (line_count >= 100000):
                     # Send a 'keep alive' signal to gathering process.
                     # If the file we are scanning is very large, the gathering process
-                    # might thing the worker process died. Sending a signal every certain
+                    # might think the worker process died. Sending a signal every certain
                     # number of lines prevents this.
                     done_queue.put("---no match---")
                     line_count = 0
