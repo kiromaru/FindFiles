@@ -20,11 +20,32 @@ This section defines the tests performed for the script:
 
 1. Regular expressions work as expected
     1. Add 3 files to a directory, file1.txt, file2.txt, file3.txt.
-    1. file1.txt contains the line: CS12345
-    1. file3.txt contains the line: cs99999
+    1. file1.txt contains the line: `CS12345`
+    1. file3.txt contains the line: `cs99999`
     1. Run script like so: `python findfiles.py "directory" "CS[0-9]" -v`
         1. Output should show that match was found in file1.txt, only 1 match in directory.
     1. Run script like so: `python findfiles.py "directory" "cs[0-9]" -v`
         1. Output should show that match was found in file3.txt, only 1 match in directory.
     1. Run script like so: `python findfiles.py "directory" "[Cc][Ss][0-9]" -v`
         1. Output should show that match was found in file1.txt and file3.txt, 2 matches in directory.
+1. Recursion works as expected
+    1. Create the following directory structure under a test directory:
+        * dir1
+        * dir2
+            * dir4
+            * dir5
+        * dir3
+            * dir6
+                * dir7
+                * dir8
+    1. Add the following files:
+        * file1.txt under dir1, contains line: `person1@google.com`
+        * file2.txt under dir4
+        * file3.txt under dir5, contains line: `person3@uw.edu`     
+        * file4.txt under dir6
+        * file5.txt under dir6
+        * file6.txt under dir8, contains line: `person4@yahoo.com`
+        * file7.txt under dir8
+        * file8.txt under dir8, contains line: `person5@udm.org`
+    1. Run script like so: `python findfiles.py "directory" "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}" -v`
+        1. Output should show that match was found in file1.txt, file3.txt, file6.txt and file8.txt
