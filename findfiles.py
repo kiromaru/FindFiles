@@ -71,7 +71,7 @@ def gather_results(done_queue):
     cpu_count = multiprocessing.cpu_count()
     results = {}
 
-    while (True):
+    while True:
         try:
             result = done_queue.get(timeout=10)
         except Queue.Empty:
@@ -84,9 +84,9 @@ def gather_results(done_queue):
             if done_count == cpu_count:
                 # All worker Processes have stopped
                 break
-        else:
+        elif not result == "---no match---":
             # We got a matching directory
-            if (results.has_key(result)):
+            if results.has_key(result):
                 results[result] += 1
             else:
                 results[result] = 1
@@ -102,9 +102,19 @@ def worker(worker_config, input, output):
     config = worker_config
 
     for file_path in iter(input.get, "---STOP---"):
-        if (is_file_match(file_path)):
+        if is_file_match(file_path):
             dir_path = os.path.dirname(file_path)
             output.put(dir_path)
+        else:
+            # It is important for the worker Processes to indicate
+            # when a match was _not_ found. The gathering process has a
+            # timeout on the output queue, and assumes that one or more
+            # worker Processes died if the output Queue times out. Indicating
+            # that no match was found works then as a 'keep-alive' signal
+            # that will prevent the timeout to happen in the case were a large
+            # directory tree is being scanned where no match at all has been
+            # found.
+            output.put("---no match---")
     
     output.put("---stopped---")
 
@@ -154,10 +164,10 @@ def parse_arguments():
     parser.add_argument("keyword", help="regular expression that defines keyword to search in files")
     args = parser.parse_args()
 
-    if (args.verbose):
+    if args.verbose:
         config["verbose"] = True
     
-    if (args.graph):
+    if args.graph:
         config["generate_graph"] = True
         config["graph_size"] = [args.graphx, args.graphy]
 
@@ -170,10 +180,10 @@ def parse_arguments():
 
 # Generate graph with directory count data
 def graph_data(matches):
-    if (not config["generate_graph"]):
+    if not config["generate_graph"]:
         return
 
-    if (not graph_support):
+    if not graph_support:
         print("This script uses the package 'matplotlib' to generate graphs.")
         print("Please run the following command to install matplotlib:")
         print("")
@@ -196,16 +206,16 @@ def graph_data(matches):
     bar_width = 0.7
 
     opacity = 0.8
-    error_config = {'ecolor': '0.3'}
+    error_config = {"ecolor": "0.3"}
 
     ax.bar(index, matches_data, bar_width,
-           alpha=opacity, color='b',
+           alpha=opacity, color="b",
            error_kw=error_config,
            label="Match Count")
 
-    ax.set_xlabel('Directories')
-    ax.set_ylabel('Match Count')
-    ax.set_title('Matches by directory')
+    ax.set_xlabel("Directories")
+    ax.set_ylabel("Match Count")
+    ax.set_title("Matches by directory")
     ax.set_xticks(index)
     ax.set_xticklabels(matches_labels)
     ax.legend()
