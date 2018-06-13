@@ -112,8 +112,7 @@ def worker(worker_config, input, output):
             # worker Processes died if the output Queue times out. Indicating
             # that no match was found works then as a 'keep-alive' signal
             # that will prevent the timeout to happen in the case were a large
-            # directory tree is being scanned where no match at all has been
-            # found.
+            # directory tree is being scanned where no match can be found.
             output.put("---no match---")
     
     output.put("---stopped---")
