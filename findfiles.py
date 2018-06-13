@@ -28,8 +28,9 @@ config = {
 
 
 # Determine if given file is a match for keyword_pattern
-def is_file_match(file_path):
+def is_file_match(file_path, done_queue):
     try:
+        line_count = 0
         with open(file_path, "r") as fi:
             line = fi.readline()
 
@@ -41,6 +42,14 @@ def is_file_match(file_path):
                     return True
 
                 line = fi.readline()
+                line_count += 1
+                if (line_count >= 100000):
+                    # Send a 'keep alive' signal to gathering process.
+                    # If the file we are scanning is very large, the gathering process
+                    # might thing the worker process died. Sending a signal every certain
+                    # number of lines prevents this.
+                    done_queue.put("---no match---")
+                    line_count = 0
     except IOError as ioe:
         print("Error trying to read file: " + str(ioe))
 
@@ -73,7 +82,7 @@ def gather_results(done_queue):
 
     while True:
         try:
-            result = done_queue.get(timeout=10)
+            result = done_queue.get(timeout=60)
         except Queue.Empty:
             print("Error: Did not get expected results from worker Process.")
             print("       Results might be incomplete.")
@@ -102,7 +111,7 @@ def worker(worker_config, input, output):
     config = worker_config
 
     for file_path in iter(input.get, "---STOP---"):
-        if is_file_match(file_path):
+        if is_file_match(file_path, output):
             dir_path = os.path.dirname(file_path)
             output.put(dir_path)
         else:
