@@ -49,6 +49,19 @@ This section defines the tests that should be performed for the script.
         * *file8.txt* under dir8, contains line: `%person%-5-@udm.org`
     1. Run script like so: `python findfiles.py "directory" "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}" -v`
         1. Output should show that match was found in *file1.txt*, *file6.txt* and *file8.txt*
+1. Script still works when graphing package is not present
+    1. Make sure the Python environment does *not* contain the package `matplotlib`
+    1. Run script like so: `python findfiles.py "directory" "[Cc][Ss][0-9]" -g`. Directory should exist, doesn't matter if directory contains matches.
+        1. Output should show matches found, and a message saying that the package `matplotlib` is not installed should appear, as well as instructions to install it.
+1. Graphing functionality works as expected
+    1. Use the same directory structure as the previous test case
+    1. Run script like so: `python findfiles.py "directory" "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}" -g`
+        1. Output should show 1 match in *dir1* and 2 matches in *dir8*, and should generate a file called `matchfig.png` with a graph showing the matches per directory found.
+1. Script with no arguments shows usage
+    1. Run script like so: `python findfiles.py`
+        1. Message showing how to use the script appears, and also tells user there are not enough arguments.
+    1. Run script like so: `python findfiles.py "directory"`
+        1. Message showing how to use the script appears, and also tells user there are not enough arguments.
 1. Non-existing directory shows appropriate error
     1. Run script like so: `python findfiles.py "non-existing-directory" "[Cc][Ss][0-9]"`, making sure that the directory passed as argument does not exist.
         1. Message saying directory does not exist should appear.
