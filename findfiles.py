@@ -17,7 +17,7 @@ except ImportError:
     graph_support = False
 
 
-# Global variables
+# Global configuration for the script.
 config = {
     "keyword_pattern": re.compile(""),
     "root_path": "",
